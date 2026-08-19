@@ -1,0 +1,140 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  hostmetrics:
+    collection_interval: 60s
+    root_path: /hostfs
+    scrapers:
+      cpu: {}
+      disk: {}
+      load: {}
+      filesystem: {}
+      memory: {}
+      network: {}
+      paging: {}
+      process:
+        mute_process_name_error: true
+        mute_process_exe_error: true
+        mute_process_io_error: true
+        mute_process_user_error: true
+      processes: {}
+
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+    api_version: "1.40"
+    collection_interval: 10s
+    timeout: 20s
+
+  filelog:
+    include:
+      - /var/lib/docker/containers/*/*-json.log
+
+    start_at: end
+    include_file_name: false
+    include_file_path: true
+
+    operators:
+      - id: parse-docker-json
+        type: json_parser
+        parse_from: body
+        timestamp:
+          parse_from: attributes.time
+          layout_type: gotime
+          layout: "2006-01-02T15:04:05.999999999Z07:00"
+
+      - id: extract-container-id
+        type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '^/var/lib/docker/containers/(?P<container_id>[a-f0-9]{64})/.*$'
+
+      - id: move-container-id
+        type: move
+        from: attributes.container_id
+        to: resource["container.id"]
+
+      - id: move-log-body
+        type: move
+        from: attributes.log
+        to: body
+
+      - id: move-stream
+        type: move
+        from: attributes.stream
+        to: attributes["log.iostream"]
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 400
+    spike_limit_mib: 100
+
+  resourcedetection:
+    detectors:
+      - env
+      - system
+      - docker
+
+    timeout: 2s
+
+    system:
+      hostname_sources:
+        - os
+
+  batch:
+    send_batch_size: 1000
+    send_batch_max_size: 2048
+    timeout: 10s
+
+exporters:
+  otlp:
+    endpoint: "__SIGNOZ_ENDPOINT__"
+
+    tls:
+      insecure: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions:
+    - health_check
+
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - resourcedetection
+        - batch
+      exporters:
+        - otlp
+
+    metrics:
+      receivers:
+        - otlp
+        - hostmetrics
+        - docker_stats
+      processors:
+        - memory_limiter
+        - resourcedetection
+        - batch
+      exporters:
+        - otlp
+
+    logs:
+      receivers:
+        - otlp
+        - filelog
+      processors:
+        - memory_limiter
+        - resourcedetection
+        - batch
+      exporters:
+        - otlp

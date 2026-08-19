@@ -1,0 +1,16 @@
+services:
+  signoz-collection-agent:
+    image: otel/opentelemetry-collector-contrib:__COLLECTOR_VERSION__
+    container_name: signoz-collection-agent
+    restart: unless-stopped
+    user: "0:0"
+    network_mode: host
+
+    environment:
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=__DEPLOYMENT_ENV__
+
+    volumes:
+      - ./config.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/hostfs:ro
