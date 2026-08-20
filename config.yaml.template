@@ -91,11 +91,10 @@ processors:
     timeout: 10s
 
 exporters:
-  otlp:
+  otlphttp:
     endpoint: "__SIGNOZ_ENDPOINT__"
-
-    tls:
-      insecure: true
+    headers:
+      Authorization: "Basic ${env:OTEL_BASIC_AUTH}"
 
 extensions:
   health_check:
@@ -114,7 +113,7 @@ service:
         - resourcedetection
         - batch
       exporters:
-        - otlp
+        - otlphttp
 
     metrics:
       receivers:
@@ -126,7 +125,7 @@ service:
         - resourcedetection
         - batch
       exporters:
-        - otlp
+        - otlphttp
 
     logs:
       receivers:
@@ -137,4 +136,4 @@ service:
         - resourcedetection
         - batch
       exporters:
-        - otlp
+        - otlphttp

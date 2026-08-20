@@ -8,6 +8,7 @@ services:
 
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=__DEPLOYMENT_ENV__
+      - OTEL_BASIC_AUTH=${OTEL_BASIC_AUTH}
 
     volumes:
       - ./config.yaml:/etc/otelcol-contrib/config.yaml:ro

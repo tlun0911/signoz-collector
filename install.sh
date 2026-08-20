@@ -4,7 +4,8 @@ set -euo pipefail
 
 INSTALL_DIR="/opt/signoz-collector"
 
-SIGNOZ_ENDPOINT="${SIGNOZ_ENDPOINT:-}"
+SIGNOZ_ENDPOINT="${SIGNOZ_ENDPOINT:-https://otel.lunt.app}"
+OTEL_BASIC_AUTH="${OTEL_BASIC_AUTH:-}"
 DEPLOYMENT_ENV="${DEPLOYMENT_ENV:-production}"
 COLLECTOR_VERSION="${COLLECTOR_VERSION:-0.139.0}"
 
@@ -13,11 +14,14 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-if [[ -z "$SIGNOZ_ENDPOINT" ]]; then
-    echo "SIGNOZ_ENDPOINT is required."
+if [[ -z "$OTEL_BASIC_AUTH" ]]; then
+    echo "OTEL_BASIC_AUTH is required."
     echo
-    echo "Example:"
-    echo "  sudo SIGNOZ_ENDPOINT=135.148.42.245:4317 ./install.sh"
+    echo "Generate it with:"
+    echo "  printf 'otel:YOUR_PASSWORD' | base64 -w0"
+    echo
+    echo "Then run:"
+    echo "  sudo OTEL_BASIC_AUTH='YOUR_BASE64_VALUE' ./install.sh"
     exit 1
 fi
 
@@ -51,6 +55,12 @@ sed \
     docker-compose.yaml \
     > "$INSTALL_DIR/docker-compose.yaml"
 
+cat > "$INSTALL_DIR/.env" <<EOF
+OTEL_BASIC_AUTH=${OTEL_BASIC_AUTH}
+EOF
+
+chmod 600 "$INSTALL_DIR/.env"
+
 cd "$INSTALL_DIR"
 
 echo "Starting collector..."
@@ -81,7 +91,7 @@ if docker logs --tail 100 signoz-collection-agent 2>&1 \
     echo
     echo "SigNoz collector installed successfully."
     echo
-    echo "Host: $(hostname)"
+    echo "Host:   $(hostname)"
     echo "Config: $INSTALL_DIR/config.yaml"
     echo
     echo "Check logs with:"
